@@ -1,0 +1,3 @@
+# Dependencias del proyecto kv-cache-from-scratch
+# Solo se requiere PyTorch. No se necesita GPU.
+torch>=2.2,<3.0

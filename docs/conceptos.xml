@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  conceptos.xml
+  Explicacion estructurada del KV cache con fines educativos.
+  Formato plano, sin emojis. Cada concepto se marca semanticamente para
+  facilitar su lectura y aterrizaje.
+-->
+<documento tema="KV Cache en LLMs" enfoque="ML Research">
+
+  <resumen>
+    El KV cache almacena los vectores key (K) y value (V) ya calculados
+    durante la generacion autorregresiva para reutilizarlos, en lugar de
+    recalcularlos en cada paso. Extraer el concepto es la parte facil. Lo
+    relevante para investigacion es el reto que abre y lo que significa.
+  </resumen>
+
+  <concepto nombre="Generacion autorregresiva">
+    <definicion>
+      Un LLM produce texto un token a la vez. En cada paso reprocesa la
+      secuencia previa para predecir el siguiente token.
+    </definicion>
+    <porque>
+      La arquitectura Transformer causal predice el token t+1 condicionando
+      en los tokens 1..t. Sin optimizacion, ese condicionamiento implica
+      recomputar representaciones ya calculadas.
+    </porque>
+  </concepto>
+
+  <concepto nombre="KV Cache">
+    <definicion>
+      Mecanismo que guarda los vectores K y V de tokens pasados y los
+      recupera en cada nuevo paso de generacion.
+    </definicion>
+    <porque>
+      Los vectores k = x * W_k y v = x * W_v dependen solo del token x y de
+      pesos fijos. Los K/V de tokens pasados no dependen de tokens futuros:
+      son invariantes entre pasos. Recalcularlos es trabajo redundante.
+    </porque>
+    <detalle nombre="query no se cachea">
+      Solo se necesita el query del token actual, porque la atencion se
+      calcula como softmax(q * K^T / sqrt(d)) * V, donde q es el query nuevo
+      y K, V son toda la historia acumulada.
+    </detalle>
+  </concepto>
+
+  <mecanismo nombre="store-and-retrieve">
+    <paso orden="1">Calcular K/V solo del token nuevo.</paso>
+    <paso orden="2">Concatenar esos K/V a la cache existente.</paso>
+    <paso orden="3">Calcular la atencion del query nuevo contra toda la cache.</paso>
+  </mecanismo>
+
+  <detalle-implementacion nombre="mascara con offset">
+    <descripcion>
+      Sin cache, query y keys tienen igual longitud y se usa una mascara
+      triangular estandar. Con cache, en la fase de decode pasa un unico
+      query contra todas las keys; ese query esta en la posicion absoluta
+      Tk-1 y debe poder ver todas las keys.
+    </descripcion>
+    <solucion>offset = Tk - Tq desplaza la diagonal de la mascara.</solucion>
+    <riesgo>
+      Es un punto tipico de error de indexacion que hace divergir la salida
+      respecto a la version sin cache.
+    </riesgo>
+  </detalle-implementacion>
+
+  <detalle-implementacion nombre="tracking de posicion">
+    <descripcion>
+      Los positional embeddings de los tokens nuevos deben continuar donde
+      quedo la cache (current_pos), no reiniciar en 0.
+    </descripcion>
+    <riesgo>
+      Si se reinicia en 0, el modelo trata los tokens nuevos como si se
+      solaparan con los anteriores y rompe la codificacion posicional.
+    </riesgo>
+  </detalle-implementacion>
+
+  <detalle-implementacion nombre="reset entre prompts">
+    <descripcion>
+      La cache debe limpiarse entre dos llamadas de generacion distintas.
+    </descripcion>
+    <riesgo>
+      Sin reset, los queries de un prompt nuevo atienden a keys obsoletos y
+      la salida se vuelve incoherente.
+    </riesgo>
+  </detalle-implementacion>
+
+  <compromiso nombre="computo vs memoria">
+    <ventaja tipo="computo">
+      El costo por paso baja de O(n^2) acumulado a O(n) lineal, porque cada
+      K/V se calcula una sola vez.
+    </ventaja>
+    <costo tipo="memoria">
+      La cache crece linealmente con la longitud de secuencia. En modelos
+      grandes y contextos largos puede consumir memoria de GPU prohibitiva.
+    </costo>
+    <significado>
+      Este es el cuello de botella real de la inferencia moderna y lo que
+      define la agenda de investigacion en inferencia eficiente.
+    </significado>
+  </compromiso>
+
+  <retos-de-investigacion>
+    <reto nombre="fragmentacion de memoria">
+      La concatenacion repetida (torch.cat) provoca reasignaciones y
+      fragmentacion. Motivo de PagedAttention / vLLM.
+    </reto>
+    <reto nombre="crecimiento lineal de memoria">
+      Motiva compresion, poda de tokens (eviction) y atencion compartida
+      (MQA, GQA, MLA).
+    </reto>
+    <reto nombre="reuso entre consultas">
+      Reutilizar cache entre prompts con prefijo compartido y moverla fuera
+      de la GPU para servir a escala.
+    </reto>
+  </retos-de-investigacion>
+
+  <alcance>
+    <aplica>Solo en inferencia.</aplica>
+    <no-aplica>
+      No se usa en entrenamiento, donde la secuencia se procesa en paralelo
+      con teacher forcing.
+    </no-aplica>
+  </alcance>
+
+  <referencias>
+    <referencia tipo="tutorial" autor="Sebastian Raschka" anio="2025"
+      titulo="Understanding and Coding the KV Cache in LLMs from Scratch"
+      url="https://magazine.sebastianraschka.com/p/coding-the-kv-cache-in-llms"/>
+    <referencia tipo="paper" id="arXiv:2412.19442"
+      titulo="A Survey on Large Language Model Acceleration based on KV Cache Management"/>
+    <referencia tipo="paper" id="arXiv:2603.20397"
+      titulo="KV Cache Optimization Strategies for Scalable and Efficient LLM Inference"/>
+    <referencia tipo="paper" id="arXiv:2508.06297"
+      titulo="KV Cache Compression for Inference Efficiency in LLMs: A Review"/>
+    <referencia tipo="paper" id="arXiv:1911.02150" titulo="Multi-Query Attention (Shazeer, 2019)"/>
+    <referencia tipo="paper" id="arXiv:2305.13245" titulo="Grouped-Query Attention (Ainslie et al., 2023)"/>
+    <referencia tipo="paper" id="arXiv:2306.14048" titulo="H2O: Heavy-Hitter Oracle (2023)"/>
+    <nota>
+      Reimplementacion propia con fines educativos, con atribucion a las
+      fuentes. No reproduce codigo ni texto protegido.
+    </nota>
+  </referencias>
+
+</documento>
