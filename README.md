@@ -1,6 +1,6 @@
 # kv-cache-internals
 
-[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/CarlosALeon/kv-cache-internals/blob/main/notebooks/kv_cache_para_ml_research.ipynb)
+[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/CarlosALeon/kv-cache-internals/blob/main/notebooks/kv_cache_mechanics.ipynb)
 [![CI](https://github.com/CarlosALeon/kv-cache-internals/actions/workflows/run.yml/badge.svg)](https://github.com/CarlosALeon/kv-cache-internals/actions/workflows/run.yml)
 
 A from-scratch look at how the KV cache works inside a transformer, and what
@@ -89,7 +89,7 @@ n grows -> speed-up grows   (empirical O(n^2) -> O(n))
 ### Layout
 
 ```
-notebooks/kv_cache_para_ml_research.ipynb   walkthrough + runnable cells
+notebooks/kv_cache_mechanics.ipynb   walkthrough + runnable cells
 src/kv_cache.py                             reusable implementation + CLI
 docs/conceptos.xml                          structured notes (what/when/why/limits)
 ```
